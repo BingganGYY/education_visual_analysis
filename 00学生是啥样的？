@@ -1,1 +1,219 @@
+#-*- coding:utf-8 -*-
+
+'''
+# Author: Amber
+# Date: 2019-11-03
+# Description: Data-process for Education visualization competition
+'''
+
+##############################################################################
+#Part1：统计学校范围内学生的基本情况
+##############################################################################
+import numpy as np
+import pandas as pd
+
+# 显示所有列
+pd.set_option('display.max_columns', None)
+# 显示所有行
+pd.set_option('display.max_rows', None)
+
+# 导入数据集
+data_origin = pd.read_csv('education_data_set/2_student_info.csv')
+'''
+data_origin.shape  # (1765, 14)
+print(data_origin.head())
+data_origin.dtypes
+all_columns  = data_origin.columns.tolist()
+print(all_columns )  
+#   ['bf_StudentID', 
+#    'bf_Name', 
+#    'bf_sex', 
+#    'bf_nation', 
+#    'bf_BornDate'(出生年份), 
+#    'cla_Name', 
+#    'bf_NativePlace'（户籍地）, 
+#    'Bf_ResidenceType'（城镇）, 
+#    'bf_policy'（政治面貌）, 
+#    'cla_id', 
+#    'cla_term'（班级学期）, 
+#    'bf_zhusu', 
+#    'bf_leaveSchool', 
+#    'bf_qinshihao']
+'''
+# 全部数据集基本信息 --替代上面全部
+import pandas_profiling
+# windows pycharm执行代码,执行完在浏览器打开2_student_info.html
+if __name__ == '__main__':
+    pfr = pandas_profiling.ProfileReport(data_origin)
+    pfr.to_file("./2_student_info.html")
+
+# 全部数据缺失值可视化
+import missingno as msno
+msno.matrix(data_origin, figsize=(12, 7))  # 缺失比例直观图
+msno.heatmap(data_origin, figsize=(12, 7))  # 缺失相关性热力图
+
+##############################################################################
+# (1)性别
+
+# 统计学生性别的缺失值
+num_null = pd.isnull(data_origin['bf_sex']).sum(axis=0)
+print('性别的缺失值数：', num_null)
+# 缺失值数量为0
+
+# 统计男女生的人数
+data_origin['bf_sex'].value_counts()
+# 笨写法如下：
+data_origin['bf_sex'] = data_origin['bf_sex'].map({'男': 1, '女': 0})  # 映射函数学习一下
+num_male = sum(data_origin['bf_sex'])
+num_female = len(data_origin) - num_male
+print('男生的数量为', num_male, '女生的数量为', num_female)
+# 男性人数为943人，女性人数为822人
+
+##############################################################################
+# （2）民族
+# 统计学生民族数据的缺失值
+num_null = pd.isnull(data_origin['bf_nation']).sum(axis=0)
+print('民族的缺失值数：', num_null)
+# 缺失值数量为0
+data_origin['bf_nation'].value_counts()
+# 了解一共有几种民族
+# 汉族1750人，少数民族15人（回族2人，满族4人，苗族3人，畲族1人，土家族3人，朝鲜族2人
+
+##############################################################################
+# （3）出生地分布
+
+# Step1：统计缺失值并剔除
+num_null = pd.isnull(data_origin['bf_NativePlace']).sum(axis=0)
+print('出生地的缺失值数：', num_null)
+# 出生地缺失的数据有125人
+
+# 将学生出生地缺失的行删除
+data_NativePlace = data_origin['bf_NativePlace'].dropna(axis=0)
+print('剔除出生地缺失后数据量：', data_NativePlace.shape[0])
+# 剔除出生地缺失后数据量： 1640
+print(data_NativePlace)
+
+NativePlace = data_origin['bf_NativePlace'].value_counts()  # 438个变量值
+NativePlace.to_csv("NativePlace.csv")
+
+# 将学生出生地中错误数据进行删除，如汉、汉族、中国---删除异常值
+error_NativePlace = ['汉', '汉族', '中国']
+for i in error_NativePlace:
+    data_NativePlace = data_NativePlace.drop(data_NativePlace[data_NativePlace == i].index)  # 删除索引所在的值
+print('去除错误数据后的数据量:', data_NativePlace.shape[0])
+# 剩下的行数为1610行
+
+# Step2:删除构建主要省级城市
+# 构建主要的省级城市  34个
+Province = ["北京", "上海", "天津", "重庆", "河北", "山西", "辽宁", "吉林", "河南", "江苏", "浙江", "安徽", "福建",
+            "江西", "山东", "湖北", "湖南", "广东", "海南", "四川", "贵州", "云南", "陕西", "甘肃", "青海", "黑龙江",
+            "内蒙古", "广西", "西藏", "宁夏", "新疆", "台湾", "香港", "澳门"]
+# 通过循环来统计数目
+num_city = [0]*34  # 34个0构成的list
+# print(num_city)
+for i in range(0, 34):
+    data_NativePlace_new = data_NativePlace[data_NativePlace.str.contains(Province[i])]  # 统计每个生源地属于省级城市的个数
+    num_city[i] = data_NativePlace_new.shape[0]
+    print("城市", Province[i], "的数量为", num_city[i])
+print(np.sum(num_city))  # 1145
+
+# 处理浙江的城市
+Zhejiang = ["宁波", "慈溪", "岱山", "东阳", "奉化", "富阳", "海曙", "杭州", "黄岩", "嘉善", "嘉兴", "建德", "江北", "乐清",
+            "宁海", "浦江", "衢州", "三门", "上虞", "绍兴", "嵊州", "台州", "桐庐", "温州", "咸祥", "象山", "新昌", "义乌",
+            "鄞州", "余姚", "浙甬", "舟山", "诸暨", "丽水"]
+
+sum_zhejiang = 0
+num_zhejiang = [0]*(len(Zhejiang))
+for i in range(0, len(Zhejiang)):
+    data_NativePlace_new = data_NativePlace.drop(data_NativePlace[data_NativePlace.str.contains(Zhejiang[i])].index)
+    num_zhejiang[i] = data_NativePlace.shape[0] - data_NativePlace_new.shape[0]
+    print('属于浙江', Zhejiang[i], '的人数有', num_zhejiang[i])
+    data_NativePlace = data_NativePlace.drop(data_NativePlace[data_NativePlace.str.contains(Zhejiang[i])].index)
+print(num_zhejiang)
+print('\b')
+
+for i in range(0, len(Zhejiang)):
+    sum_zhejiang += num_zhejiang[i]
+
+num_city[10] = num_city[10] + sum_zhejiang
+print("属于浙江的其他的城市有", sum_zhejiang, "个")
+print("属于浙江省一共有", num_city[10], "名学生")
+print('\b')
+
+# 修改其他的省市
+# 打印剩余的
+# print(data_NativePlace)
+# print('\b')
+
+# 将其他的并入
+# 安徽合肥、皖
+num_city[11] = num_city[11] + 2
+# 江西吉安
+num_city[13] = num_city[13] + 1
+# 辽宁鞍山
+num_city[6] = num_city[6] + 1
+
+# 打印各个省市的分布情况
+for i in range(0, len(Province)):
+    print("来自", Province[i], "的有", num_city[i], "位学生")
+print('\b')
+
+# 打印各个省市有人的分布情况
+for i in range(0, len(Province)):
+    if num_city[i] != 0:
+        print("来自", Province[i], "的有", num_city[i], "位学生")
+print('\b')
+
+##############################################################################
+# （4）学生政治面貌统计
+
+# 统计学生政治面貌的缺失值
+num_null = pd.isnull(data_origin['bf_policy']).sum(axis=0)
+print('政治面貌的缺失值数：', num_null)
+# 政治面貌的缺失值数： 0
+
+data_origin['bf_policy'].value_counts()
+# 统计学校内学生的政治面貌，分为：
+# 共青团员     1662
+# 一般         78
+# 少先队员       23
+# 共产党党员       1
+# 民主党派        1
+
+##############################################################################
+# （5）学生年龄统计
+
+# 统计学生年龄缺失值
+num_null = pd.isnull(data_origin['bf_BornDate']).sum(axis=0)
+print('年龄的缺失值数：', num_null)
+# 缺失人数为83人，删除缺失的学生记录
+BornDate_new = data_origin['bf_BornDate'].dropna(axis=0)
+BornDate_new.shape[0]  # 1682
+
+# 计算学生的年级，如果都是以2019开始计算
+student_age = 2019 - BornDate_new
+
+# 统计学生的年龄分布情况
+student_age.value_counts()
+# 17.0    566
+# 18.0    473
+# 16.0    428
+# 19.0    207
+# 15.0      3
+# 12.0      2
+# 9.0       1
+# 14.0      1
+# 20.0      1
+
+##############################################################################
+# （6）住校学生统计
+
+# 统计学生住校信息栏为空的数据，表示学生在外面住
+num_null = pd.isnull(data_origin['bf_zhusu']).sum(axis=0)
+print('不住校：', num_null)
+print("住校学生：", (data_origin.shape[0] - num_null), "住校外的学生：", num_null)
+
+# 统计各个年龄段的男女比例
+# 交叉表
+pd.crosstab(data_origin['bf_sex'], student_age) # 交叉表crosstab，按照指定的行和列统计分组频数
 
